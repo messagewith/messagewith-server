@@ -8,14 +8,14 @@ Messagewith server written in [GO](https://go.dev/)
 - [MongoDB Server](https://www.mongodb.com/try/download/community)
 
 
-Inside ``packages/server`` folder, create .env file containing:
+Inside root folder, create .env file containing:
 ```
     MESSAGEWITH_JWT_SECRET=<random_long_text_for_jwt_sign>
     MESSAGEWITH_DOMAIN=<server_domain>
     MESSAGEWITH_MOCKUP_IP_ADDRESS=<mockup_ip_address_in_dev_env>
     MESSAGEWITH_DATABASE_URI=<mongodb_connection_uri>
 ```
-Finally you can run ```yarn start:dev```
+Finally you can run ```go run .```
 
 
 ## License
