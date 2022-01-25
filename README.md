@@ -1,5 +1,5 @@
 # Messagewith Server
-Messagewith server written in [GO](https://go.dev/)
+Messagewith server written in [Go](https://go.dev/)
 
 ## Running development server
 
