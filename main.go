@@ -1,9 +1,6 @@
 package main
 
 import (
-	"awesomeProject/graph"
-	"awesomeProject/graph/generated"
-	"awesomeProject/utils"
 	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
@@ -11,6 +8,10 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kamva/mgm/v3"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"messagewith-server/env"
+	"messagewith-server/graph"
+	"messagewith-server/graph/generated"
+	"messagewith-server/middlewares"
 	"os"
 )
 
@@ -30,26 +31,24 @@ func playgroundHandler() gin.HandlerFunc {
 	}
 }
 
-func initDatabaseConnection() gin.HandlerFunc {
-	err := mgm.SetDefaultConfig(nil, "awesome_project", options.Client().ApplyURI(os.Getenv("MESSAGEWITH_DATABASE_URI")))
-
+func initDatabaseConnection() {
+	err := mgm.SetDefaultConfig(nil, "messagewith", options.Client().ApplyURI(os.Getenv(env.DatabaseURI)))
 	if err != nil {
 		panic(err)
 	}
-
-	return func(c *gin.Context) {}
 }
 
 func main() {
 	err := godotenv.Load(".env")
-
 	if err != nil {
 		panic(fmt.Errorf("create .env file"))
 	}
 
+	initDatabaseConnection()
+
 	r := gin.Default()
-	r.Use(initDatabaseConnection())
-	r.Use(utils.GinContextToContextMiddleware())
+	r.Use(middlewares.GinContextToContextMiddleware())
+	r.Use(middlewares.AuthMiddleware())
 	r.POST("/query", graphqlHandler())
 	r.GET("/", playgroundHandler())
 	r.Run(":8000")

@@ -4,21 +4,25 @@ package graph
 // will be copied through when generating and any unknown code will be moved to the end.
 
 import (
-	"awesomeProject/graph/generated"
-	"awesomeProject/graph/model"
 	"context"
+	"messagewith-server/graph/generated"
+	"messagewith-server/graph/model"
+	"messagewith-server/users"
 )
 
 func (r *mutationResolver) CreateUser(ctx context.Context, userInput model.UserInput) (*model.User, error) {
-	return r.usersService.CreateUser(ctx, &userInput)
+	usersService := users.GetService()
+	return usersService.CreateUser(ctx, &userInput)
 }
 
 func (r *queryResolver) Users(ctx context.Context, filter *model.UserFilter) ([]*model.User, error) {
-	return r.usersService.GetUsers(ctx, filter)
+	usersService := users.GetService()
+	return usersService.GetUsers(ctx, filter)
 }
 
 func (r *queryResolver) User(ctx context.Context, id *string, email *string) (*model.User, error) {
-	return r.usersService.GetUser(ctx, id, email)
+	usersService := users.GetService()
+	return usersService.GetUser(ctx, id, email, nil)
 }
 
 // Mutation returns generated.MutationResolver implementation.

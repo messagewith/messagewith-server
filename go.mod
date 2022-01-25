@@ -1,4 +1,4 @@
-module awesomeProject
+module messagewith-server
 
 go 1.17
 

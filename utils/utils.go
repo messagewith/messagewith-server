@@ -12,22 +12,13 @@ import (
 	"io"
 )
 
-func GeneratePassword(password string) string {
+func HashPassword(password string) string {
 	bts, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-
 	if err != nil {
 		panic(err)
 	}
 
 	return string(bts)
-}
-
-func GinContextToContextMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx := context.WithValue(c.Request.Context(), "GinContextKey", c)
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-	}
 }
 
 func GinContextFromContext(ctx context.Context) (*gin.Context, error) {
@@ -42,13 +33,13 @@ func GinContextFromContext(ctx context.Context) (*gin.Context, error) {
 		err := fmt.Errorf("gin.Context has wrong type")
 		return nil, err
 	}
+
 	return gc, nil
 }
 
 func Encrypt(key []byte, message string) (encoded string, err error) {
 	plainText := []byte(message)
 	block, err := aes.NewCipher(key)
-
 	if err != nil {
 		return
 	}
@@ -68,13 +59,11 @@ func Encrypt(key []byte, message string) (encoded string, err error) {
 
 func Decrypt(key []byte, secure string) (decoded string, err error) {
 	cipherText, err := base64.RawStdEncoding.DecodeString(secure)
-
 	if err != nil {
 		return
 	}
 
 	block, err := aes.NewCipher(key)
-
 	if err != nil {
 		return
 	}

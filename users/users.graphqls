@@ -2,12 +2,15 @@ type User {
     id: ID!
     firstName: String!
     lastName: String!
+    middleName: String
+    fullName: String!
     nickname: String!
     email: String!
 }
 
 input UserInput {
     firstName: String!
+    middleName: String
     lastName: String!
     password: String!
     nickname: String

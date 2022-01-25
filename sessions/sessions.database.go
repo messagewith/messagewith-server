@@ -1,7 +1,6 @@
 package sessions
 
 import (
-	"context"
 	"github.com/kamva/mgm/v3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -32,7 +31,7 @@ type Session struct {
 
 type DB struct{}
 
-func GetDB(ctx context.Context) *DB {
+func GetDB() *DB {
 	return &DB{}
 }
 

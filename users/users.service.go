@@ -1,80 +1,55 @@
 package users
 
 import (
-	"awesomeProject/graph/model"
-	"awesomeProject/utils"
 	"context"
 	"fmt"
 	"github.com/kamva/mgm/v3"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"strings"
+	errors "messagewith-server/errors"
+	"messagewith-server/graph/model"
+	"messagewith-server/utils"
 )
 
-type Service struct{}
+type Service struct {
+	db *mgm.Collection
+}
 
-func createNickname(ctx context.Context, db *mgm.Collection, userInput *model.UserInput) (*string, error) {
-	foundUser := &User{}
-
-	if userInput.Nickname != nil {
-		if err := db.FindOne(ctx, bson.M{"nickname": userInput.Nickname}).Decode(foundUser); err == nil {
-			return nil, fmt.Errorf("user with this nickname already exists")
-		}
-
-		return userInput.Nickname, nil
+func GetService() *Service {
+	return &Service{
+		db: GetDB().UseCollection(),
 	}
-
-	var (
-		newNickname  *string
-		tempNickname string
-		i            uint = 0
-	)
-	firstNameAndLastName := fmt.Sprintf("%v_%v", strings.ToLower(userInput.FirstName), strings.ToLower(userInput.LastName))
-
-	for newNickname == nil {
-		if i == 0 {
-			tempNickname = firstNameAndLastName
-		} else {
-			tempNickname = fmt.Sprintf("%v_%v", firstNameAndLastName, i)
-		}
-
-		if err := db.FindOne(ctx, bson.M{"nickname": tempNickname}).Decode(foundUser); err != nil {
-			newNickname = &tempNickname
-		}
-
-		i++
-	}
-
-	return newNickname, nil
 }
 
 func (service *Service) CreateUser(ctx context.Context, userInput *model.UserInput) (*model.User, error) {
-	db := GetDB(ctx).UseCollection()
-
 	foundUser := &User{}
-	err := db.FindOne(ctx, bson.M{"email": userInput.Email}).Decode(foundUser)
-
+	err := service.db.FindOne(ctx, bson.M{"email": userInput.Email}).Decode(foundUser)
 	if err == nil {
-		return nil, fmt.Errorf("user with this email already exists")
+		return nil, errors.ErrUserEmailAlreadyUsed
 	}
 
-	nickname, err := createNickname(ctx, db, userInput)
-
+	nickname, err := createNickname(ctx, service.db, userInput)
 	if err != nil {
 		return nil, err
 	}
 
-	user := User{
-		ID:        primitive.NewObjectID(),
-		FirstName: userInput.FirstName,
-		LastName:  userInput.LastName,
-		Email:     userInput.Email,
-		Password:  utils.GeneratePassword(userInput.Password),
-		Nickname:  *nickname,
+	middleName := ""
+	if userInput.MiddleName != nil {
+		middleName = *userInput.MiddleName + " "
 	}
 
-	err = db.Create(&user)
+	user := User{
+		ID:         primitive.NewObjectID(),
+		FirstName:  userInput.FirstName,
+		MiddleName: userInput.MiddleName,
+		LastName:   userInput.LastName,
+		FullName:   fmt.Sprintf("%v %v%v", userInput.FirstName, middleName, userInput.LastName),
+		Email:      userInput.Email,
+		Password:   utils.HashPassword(userInput.Password),
+		Nickname:   *nickname,
+	}
 
+	err = service.db.Create(&user)
 	if err != nil {
 		panic(err)
 	}
@@ -83,10 +58,7 @@ func (service *Service) CreateUser(ctx context.Context, userInput *model.UserInp
 }
 
 func (service *Service) GetUsers(ctx context.Context, filter *model.UserFilter) ([]*model.User, error) {
-	db := GetDB(ctx).UseCollection()
-
 	allUsers := make([]*User, 0)
-
 	filterObj := bson.M{}
 
 	if filter != nil {
@@ -103,14 +75,12 @@ func (service *Service) GetUsers(ctx context.Context, filter *model.UserFilter) 
 		}
 	}
 
-	cursor, err := db.Find(ctx, filterObj)
-
+	cursor, err := service.db.Find(ctx, filterObj)
 	if err != nil {
 		return nil, err
 	}
 
 	err = cursor.All(ctx, &allUsers)
-
 	if err != nil {
 		return nil, err
 	}
@@ -118,41 +88,57 @@ func (service *Service) GetUsers(ctx context.Context, filter *model.UserFilter) 
 	return FilterAllUsers(allUsers), nil
 }
 
-func (service *Service) GetUser(ctx context.Context, id *string, email *string) (*model.User, error) {
-	db := GetDB(ctx).UseCollection()
-
-	filterObj := bson.M{}
-
-	if id != nil {
-		objectId, err := primitive.ObjectIDFromHex(*id)
-
-		if err != nil {
-			return nil, fmt.Errorf("invalid id")
-		}
-
-		filterObj["_id"] = objectId
-	}
-	if email != nil {
-		filterObj["email"] = email
-	}
-
-	res := &User{}
-	err := db.FindOne(ctx, filterObj).Decode(res)
-
+func (service *Service) GetUser(ctx context.Context, id *string, email *string, nickname *string) (*model.User, error) {
+	user, err := service.GetPlainUser(ctx, id, email, nickname)
 	if err != nil {
 		return nil, err
 	}
 
-	return FilterUser(res), nil
+	return FilterUser(user), nil
+}
+
+func (service *Service) GetPlainUser(ctx context.Context, id *string, email *string, nickname *string) (*User, error) {
+	filterObj := bson.M{}
+	var possibleErr error
+
+	if id != nil {
+		objectId, err := primitive.ObjectIDFromHex(*id)
+		if err != nil {
+			return nil, errors.ErrInvalidID
+		}
+
+		filterObj["_id"] = objectId
+		possibleErr = errors.ErrNoUserWithSpecifiedId
+	}
+
+	if email != nil {
+		filterObj["email"] = email
+		possibleErr = errors.ErrNoUserWithSpecifiedEmail
+	}
+
+	if nickname != nil {
+		filterObj["nickname"] = nickname
+		possibleErr = errors.ErrNoUserWithSpecifiedNickname
+	}
+
+	res := &User{}
+	err := service.db.FindOne(ctx, filterObj).Decode(res)
+	if err != nil {
+		return nil, possibleErr
+	}
+
+	return res, nil
 }
 
 func FilterUser(user *User) *model.User {
 	return &model.User{
-		ID:        user.ID.Hex(),
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Email:     user.Email,
-		Nickname:  user.Nickname,
+		ID:         user.ID.Hex(),
+		FirstName:  user.FirstName,
+		MiddleName: user.MiddleName,
+		FullName:   user.FullName,
+		LastName:   user.LastName,
+		Email:      user.Email,
+		Nickname:   user.Nickname,
 	}
 }
 
@@ -160,13 +146,7 @@ func FilterAllUsers(users []*User) []*model.User {
 	newUsers := make([]*model.User, 0)
 
 	for _, v := range users {
-		newUsers = append(newUsers, &model.User{
-			ID:        v.ID.String(),
-			FirstName: v.FirstName,
-			LastName:  v.LastName,
-			Email:     v.LastName,
-			Nickname:  v.Nickname,
-		})
+		newUsers = append(newUsers, FilterUser(v))
 	}
 
 	return newUsers

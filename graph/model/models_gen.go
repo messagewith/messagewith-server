@@ -3,11 +3,13 @@
 package model
 
 type User struct {
-	ID        string `json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Nickname  string `json:"nickname"`
-	Email     string `json:"email"`
+	ID         string  `json:"id"`
+	FirstName  string  `json:"firstName"`
+	LastName   string  `json:"lastName"`
+	MiddleName *string `json:"middleName"`
+	FullName   string  `json:"fullName"`
+	Nickname   string  `json:"nickname"`
+	Email      string  `json:"email"`
 }
 
 type UserFilter struct {
@@ -17,9 +19,10 @@ type UserFilter struct {
 }
 
 type UserInput struct {
-	FirstName string  `json:"firstName"`
-	LastName  string  `json:"lastName"`
-	Password  string  `json:"password"`
-	Nickname  *string `json:"nickname"`
-	Email     string  `json:"email"`
+	FirstName  string  `json:"firstName"`
+	MiddleName *string `json:"middleName"`
+	LastName   string  `json:"lastName"`
+	Password   string  `json:"password"`
+	Nickname   *string `json:"nickname"`
+	Email      string  `json:"email"`
 }
