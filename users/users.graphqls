@@ -30,5 +30,7 @@ extend type Query {
 
 extend type Mutation {
     createUser(userInput: UserInput!): User!
+    changeUserPassword(email: String!, token: String!, newPassword: String!): User
+    generateChangeUserPasswordToken(email: String!): String
 }
 

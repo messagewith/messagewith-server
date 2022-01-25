@@ -4,25 +4,29 @@ import (
 	"context"
 	"fmt"
 	"github.com/kamva/mgm/v3"
+	uuid "github.com/satori/go.uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	errors "messagewith-server/errors"
+	"golang.org/x/crypto/bcrypt"
+	errors "messagewith-server/error-constants"
 	"messagewith-server/graph/model"
+	"messagewith-server/mails"
+	database "messagewith-server/users/database"
 	"messagewith-server/utils"
 )
 
-type Service struct {
+type service struct {
 	db *mgm.Collection
 }
 
-func GetService() *Service {
-	return &Service{
-		db: GetDB().UseCollection(),
+func getService() *service {
+	return &service{
+		db: database.GetDB().UseCollection(),
 	}
 }
 
-func (service *Service) CreateUser(ctx context.Context, userInput *model.UserInput) (*model.User, error) {
-	foundUser := &User{}
+func (service *service) CreateUser(ctx context.Context, userInput *model.UserInput) (*model.User, error) {
+	foundUser := &database.User{}
 	err := service.db.FindOne(ctx, bson.M{"email": userInput.Email}).Decode(foundUser)
 	if err == nil {
 		return nil, errors.ErrUserEmailAlreadyUsed
@@ -38,7 +42,7 @@ func (service *Service) CreateUser(ctx context.Context, userInput *model.UserInp
 		middleName = *userInput.MiddleName + " "
 	}
 
-	user := User{
+	user := database.User{
 		ID:         primitive.NewObjectID(),
 		FirstName:  userInput.FirstName,
 		MiddleName: userInput.MiddleName,
@@ -57,8 +61,8 @@ func (service *Service) CreateUser(ctx context.Context, userInput *model.UserInp
 	return FilterUser(&user), nil
 }
 
-func (service *Service) GetUsers(ctx context.Context, filter *model.UserFilter) ([]*model.User, error) {
-	allUsers := make([]*User, 0)
+func (service *service) GetUsers(ctx context.Context, filter *model.UserFilter) ([]*model.User, error) {
+	allUsers := make([]*database.User, 0)
 	filterObj := bson.M{}
 
 	if filter != nil {
@@ -88,7 +92,7 @@ func (service *Service) GetUsers(ctx context.Context, filter *model.UserFilter) 
 	return FilterAllUsers(allUsers), nil
 }
 
-func (service *Service) GetUser(ctx context.Context, id *string, email *string, nickname *string) (*model.User, error) {
+func (service *service) GetUser(ctx context.Context, id *string, email *string, nickname *string) (*model.User, error) {
 	user, err := service.GetPlainUser(ctx, id, email, nickname)
 	if err != nil {
 		return nil, err
@@ -97,7 +101,7 @@ func (service *Service) GetUser(ctx context.Context, id *string, email *string, 
 	return FilterUser(user), nil
 }
 
-func (service *Service) GetPlainUser(ctx context.Context, id *string, email *string, nickname *string) (*User, error) {
+func (service *service) GetPlainUser(ctx context.Context, id *string, email *string, nickname *string) (*database.User, error) {
 	filterObj := bson.M{}
 	var possibleErr error
 
@@ -121,7 +125,7 @@ func (service *Service) GetPlainUser(ctx context.Context, id *string, email *str
 		possibleErr = errors.ErrNoUserWithSpecifiedNickname
 	}
 
-	res := &User{}
+	res := &database.User{}
 	err := service.db.FindOne(ctx, filterObj).Decode(res)
 	if err != nil {
 		return nil, possibleErr
@@ -130,7 +134,84 @@ func (service *Service) GetPlainUser(ctx context.Context, id *string, email *str
 	return res, nil
 }
 
-func FilterUser(user *User) *model.User {
+func (service *service) GenerateChangePasswordToken(ctx context.Context, email string) (*string, error) {
+	db := database.GetResetPasswordDB().UseCollection()
+
+	user, err := service.GetPlainUser(ctx, nil, &email, nil)
+	if err != nil {
+		return nil, errors.ErrNoUserWithSpecifiedEmail
+	}
+
+	result := &database.ResetPassword{}
+	err = db.FindOne(ctx, bson.M{"user": user.ID}).Decode(result)
+	if err == nil {
+		_, err := db.DeleteOne(ctx, bson.M{"user": user.ID})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	token := uuid.NewV4().String()
+	resetPasswordDocument := database.ResetPassword{
+		ID:    primitive.NewObjectID(),
+		Token: token,
+		User:  user.ID,
+	}
+
+	err = db.Create(&resetPasswordDocument)
+	if err != nil {
+		panic(err)
+	}
+
+	ok := mails.SendResetPasswordToken(email, token)
+	if ok == false {
+		panic("Failed to send reset password e-mail")
+	}
+
+	returnMessage := "Check you e-mail inbox"
+
+	return &returnMessage, nil
+}
+
+func (service *service) ChangePassword(ctx context.Context, email string, token string, newPassword string) (*model.User, error) {
+	resetPasswordDB := database.GetResetPasswordDB().UseCollection()
+
+	resetPasswordResult := &database.ResetPassword{}
+	err := resetPasswordDB.FindOne(ctx, bson.M{"token": token}).Decode(resetPasswordResult)
+	if err != nil {
+		return nil, errors.ErrChangePasswordInvalidToken
+	}
+
+	userId := resetPasswordResult.User.Hex()
+	user, err := service.GetPlainUser(ctx, &userId, nil, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	if user.Email != email {
+		return nil, errors.ErrChangePasswordInvalidEmail
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(newPassword))
+	if err == nil {
+		return nil, errors.ErrChangePasswordSameNewPassword
+	}
+
+	user.Password = utils.HashPassword(newPassword)
+	_, err = service.db.UpdateByID(ctx, user.ID, bson.M{"$set": bson.M{"password": user.Password}})
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = resetPasswordDB.DeleteOne(ctx, resetPasswordResult)
+	if err != nil {
+		panic(err)
+	}
+
+	return FilterUser(user), nil
+}
+
+func FilterUser(user *database.User) *model.User {
 	return &model.User{
 		ID:         user.ID.Hex(),
 		FirstName:  user.FirstName,
@@ -142,7 +223,7 @@ func FilterUser(user *User) *model.User {
 	}
 }
 
-func FilterAllUsers(users []*User) []*model.User {
+func FilterAllUsers(users []*database.User) []*model.User {
 	newUsers := make([]*model.User, 0)
 
 	for _, v := range users {

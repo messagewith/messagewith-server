@@ -5,18 +5,19 @@ import (
 	"fmt"
 	"github.com/kamva/mgm/v3"
 	"go.mongodb.org/mongo-driver/bson"
-	errors "messagewith-server/errors"
+	errors "messagewith-server/error-constants"
 	"messagewith-server/graph/model"
+	database "messagewith-server/users/database"
 	"strings"
 )
 
-func UserFromContext(ctx context.Context) *User {
-	user, _ := ctx.Value("LoggedUser").(*User)
+func UserFromContext(ctx context.Context) *database.User {
+	user, _ := ctx.Value("LoggedUser").(*database.User)
 	return user
 }
 
 func createNickname(ctx context.Context, db *mgm.Collection, userInput *model.UserInput) (*string, error) {
-	foundUser := &User{}
+	foundUser := &database.User{}
 	if userInput.Nickname != nil {
 		if err := db.FindOne(ctx, bson.M{"nickname": userInput.Nickname}).Decode(foundUser); err == nil {
 			return nil, errors.ErrUserNicknameAlreadyUsed

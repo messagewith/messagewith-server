@@ -1,4 +1,4 @@
-package users
+package usersDatabase
 
 import (
 	"github.com/kamva/mgm/v3"

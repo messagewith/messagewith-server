@@ -8,11 +8,13 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/kamva/mgm/v3"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"messagewith-server/auth"
 	"messagewith-server/env"
 	"messagewith-server/graph"
 	"messagewith-server/graph/generated"
+	"messagewith-server/mails"
 	"messagewith-server/middlewares"
-	"os"
+	"messagewith-server/users"
 )
 
 func graphqlHandler() gin.HandlerFunc {
@@ -32,7 +34,7 @@ func playgroundHandler() gin.HandlerFunc {
 }
 
 func initDatabaseConnection() {
-	err := mgm.SetDefaultConfig(nil, "messagewith", options.Client().ApplyURI(os.Getenv(env.DatabaseURI)))
+	err := mgm.SetDefaultConfig(nil, "messagewith", options.Client().ApplyURI(env.DatabaseURI))
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +46,11 @@ func main() {
 		panic(fmt.Errorf("create .env file"))
 	}
 
+	env.InitEnvConstants()
 	initDatabaseConnection()
+	mails.InitMailClient()
+	users.InitUserService()
+	auth.InitService()
 
 	r := gin.Default()
 	r.Use(middlewares.GinContextToContextMiddleware())

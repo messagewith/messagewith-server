@@ -2,41 +2,23 @@ package auth
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"messagewith-server/env"
-	errors "messagewith-server/errors"
+	errors "messagewith-server/error-constants"
 	"messagewith-server/graph/model"
 	"messagewith-server/sessions"
 	"messagewith-server/users"
 	"messagewith-server/utils"
-
-	"os"
 )
 
-type Service struct {
-	usersService *users.Service
-	ginCtx       *gin.Context
-}
+type service struct{}
 
-func GetService(ctx context.Context) *Service {
-	ginCtx, err := utils.GinContextFromContext(ctx)
-	if err != nil {
-		panic(err)
-	}
+func (service *service) Login(ctx context.Context, email string, password string) (*model.User, error) {
+	ginCtx := utils.GinContextFromContext(ctx)
 
-	service := &Service{
-		usersService: users.GetService(),
-		ginCtx:       ginCtx,
-	}
+	MessagewithJwtSecret := []byte(env.JwtSecret)
 
-	return service
-}
-
-func (service *Service) Login(ctx context.Context, email string, password string) (*model.User, error) {
-	MessagewithJwtSecret := []byte(os.Getenv(env.JwtSecret))
-
-	user, err := service.usersService.GetPlainUser(ctx, nil, &email, nil)
+	user, err := users.Service.GetPlainUser(ctx, nil, &email, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -52,13 +34,14 @@ func (service *Service) Login(ctx context.Context, email string, password string
 		panic(err)
 	}
 
-	service.ginCtx.SetCookie("session_token", hash, 60*60*24*7, "/", os.Getenv(env.Domain), true, true)
+	ginCtx.SetCookie("session_token", hash, 60*60*24*7, "/", env.Domain, true, true)
 
 	return users.FilterUser(user), nil
 }
 
-func (service *Service) Logout(ctx context.Context) (*bool, error) {
-	sessionToken, err := sessions.GetSessionTokenFromCookie(service.ginCtx)
+func (service *service) Logout(ctx context.Context) (*bool, error) {
+	ginCtx := utils.GinContextFromContext(ctx)
+	sessionToken, err := sessions.GetSessionTokenFromCookie(ginCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +51,7 @@ func (service *Service) Logout(ctx context.Context) (*bool, error) {
 		return nil, errors.ErrUserNotLoggedIn
 	}
 
-	service.ginCtx.SetCookie("session_token", "", 60*60*24*7, "/", os.Getenv(env.Domain), true, true)
+	ginCtx.SetCookie("session_token", "", 60*60*24*7, "/", env.Domain, true, true)
 
 	return &ok, nil
 }

@@ -11,18 +11,23 @@ import (
 )
 
 func (r *mutationResolver) CreateUser(ctx context.Context, userInput model.UserInput) (*model.User, error) {
-	usersService := users.GetService()
-	return usersService.CreateUser(ctx, &userInput)
+	return users.Service.CreateUser(ctx, &userInput)
+}
+
+func (r *mutationResolver) ChangeUserPassword(ctx context.Context, email string, token string, newPassword string) (*model.User, error) {
+	return users.Service.ChangePassword(ctx, email, token, newPassword)
+}
+
+func (r *mutationResolver) GenerateChangeUserPasswordToken(ctx context.Context, email string) (*string, error) {
+	return users.Service.GenerateChangePasswordToken(ctx, email)
 }
 
 func (r *queryResolver) Users(ctx context.Context, filter *model.UserFilter) ([]*model.User, error) {
-	usersService := users.GetService()
-	return usersService.GetUsers(ctx, filter)
+	return users.Service.GetUsers(ctx, filter)
 }
 
 func (r *queryResolver) User(ctx context.Context, id *string, email *string) (*model.User, error) {
-	usersService := users.GetService()
-	return usersService.GetUser(ctx, id, email, nil)
+	return users.Service.GetUser(ctx, id, email, nil)
 }
 
 // Mutation returns generated.MutationResolver implementation.

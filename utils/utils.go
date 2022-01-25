@@ -21,20 +21,20 @@ func HashPassword(password string) string {
 	return string(bts)
 }
 
-func GinContextFromContext(ctx context.Context) (*gin.Context, error) {
+func GinContextFromContext(ctx context.Context) *gin.Context {
 	ginContext := ctx.Value("GinContextKey")
 	if ginContext == nil {
 		err := fmt.Errorf("could not retrieve gin.Context")
-		return nil, err
+		panic(err)
 	}
 
 	gc, ok := ginContext.(*gin.Context)
 	if !ok {
 		err := fmt.Errorf("gin.Context has wrong type")
-		return nil, err
+		panic(err)
 	}
 
-	return gc, nil
+	return gc
 }
 
 func Encrypt(key []byte, message string) (encoded string, err error) {

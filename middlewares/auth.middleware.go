@@ -11,11 +11,13 @@ func AuthMiddleware() gin.HandlerFunc {
 		session, err := sessions.GetSessionFromCookie(c)
 		if err != nil {
 			c.Next()
+			return
 		}
 
 		user, err := sessions.GetUserFromSession(c, session)
 		if err != nil {
 			c.Next()
+			return
 		}
 
 		ctx := context.WithValue(c.Request.Context(), "LoggedUser", user)

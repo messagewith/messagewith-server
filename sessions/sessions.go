@@ -11,19 +11,18 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"messagewith-server/env"
-	errors "messagewith-server/errors"
+	errors "messagewith-server/error-constants"
+	"messagewith-server/sessions/database"
 	"messagewith-server/users"
+	database "messagewith-server/users/database"
 	"messagewith-server/utils"
 	"net"
-	"os"
 	"time"
 )
 
-func GetUserFromSession(ctx context.Context, session *Session) (*users.User, error) {
+func GetUserFromSession(ctx context.Context, session *sessionDatabase.Session) (*database.User, error) {
 	userId := session.User.Hex()
-	usersService := users.GetService()
-
-	user, err := usersService.GetPlainUser(ctx, &userId, nil, nil)
+	user, err := users.Service.GetPlainUser(ctx, &userId, nil, nil)
 	if err != nil {
 		log.Panicf("failed to get user: %v", err)
 	}
@@ -32,7 +31,7 @@ func GetUserFromSession(ctx context.Context, session *Session) (*users.User, err
 }
 
 func GetSessionTokenFromCookie(ctx *gin.Context) (*string, error) {
-	MessagewithJwtSecret := []byte(os.Getenv(env.JwtSecret))
+	MessagewithJwtSecret := []byte(env.JwtSecret)
 
 	encryptedSessionToken, err := ctx.Cookie("session_token")
 	if err != nil || encryptedSessionToken == "" {
@@ -47,7 +46,7 @@ func GetSessionTokenFromCookie(ctx *gin.Context) (*string, error) {
 	return &sessionToken, nil
 }
 
-func GetSessionFromCookie(ctx *gin.Context) (*Session, error) {
+func GetSessionFromCookie(ctx *gin.Context) (*sessionDatabase.Session, error) {
 	sessionToken, err := GetSessionTokenFromCookie(ctx)
 	if err != nil {
 		return nil, err
@@ -56,7 +55,7 @@ func GetSessionFromCookie(ctx *gin.Context) (*Session, error) {
 	return GetSession(ctx, *sessionToken)
 }
 
-func GetLocationFromIP(ip string) (*Location, error) {
+func GetLocationFromIP(ip string) (*sessionDatabase.Location, error) {
 	geolocationDB, err := geoip2.Open("geolite/GeoLite2-City.mmdb")
 	parsedIp := net.ParseIP(ip)
 
@@ -64,9 +63,14 @@ func GetLocationFromIP(ip string) (*Location, error) {
 		return nil, err
 	}
 
-	defer geolocationDB.Close()
+	defer func(geolocationDB *geoip2.Reader) {
+		err := geolocationDB.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(geolocationDB)
 
-	location := Location{}
+	location := sessionDatabase.Location{}
 	city, err := geolocationDB.City(parsedIp)
 	if err != nil {
 		return nil, err
@@ -82,16 +86,13 @@ func GetLocationFromIP(ip string) (*Location, error) {
 	return &location, err
 }
 
-func CreateSession(ctx context.Context, user *users.User) *Session {
-	db := GetDB().UseCollection()
-	gc, err := utils.GinContextFromContext(ctx)
-	if err != nil {
-		panic(err)
-	}
+func CreateSession(ctx context.Context, user *database.User) *sessionDatabase.Session {
+	db := sessionDatabase.GetDB().UseCollection()
+	gc := utils.GinContextFromContext(ctx)
 
 	clientIp := gc.ClientIP()
 	if clientIp == "::1" {
-		clientIp = os.Getenv(env.MockupIpAddress)
+		clientIp = env.MockupIpAddress
 	}
 
 	location, err := GetLocationFromIP(clientIp)
@@ -102,7 +103,7 @@ func CreateSession(ctx context.Context, user *users.User) *Session {
 	userAgent := gc.GetHeader("User-Agent")
 	parsedUserAgent := ua.Parse(userAgent)
 
-	session := Session{
+	session := sessionDatabase.Session{
 		ID:           primitive.NewObjectID(),
 		Token:        uuid.NewV4().String(),
 		User:         user.ID,
@@ -120,10 +121,10 @@ func CreateSession(ctx context.Context, user *users.User) *Session {
 	return &session
 }
 
-func GetSession(ctx context.Context, token string) (*Session, error) {
-	db := GetDB().UseCollection()
+func GetSession(ctx context.Context, token string) (*sessionDatabase.Session, error) {
+	db := sessionDatabase.GetDB().UseCollection()
 
-	result := &Session{}
+	result := &sessionDatabase.Session{}
 	err := db.FindOne(ctx, bson.M{"token": token}).Decode(result)
 	if err != nil {
 		return nil, err
@@ -133,7 +134,7 @@ func GetSession(ctx context.Context, token string) (*Session, error) {
 }
 
 func ClearSession(ctx context.Context, token string) bool {
-	db := GetDB().UseCollection()
+	db := sessionDatabase.GetDB().UseCollection()
 
 	_, err := db.DeleteOne(ctx, bson.M{"token": token})
 	if err != nil {

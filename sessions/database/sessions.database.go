@@ -1,4 +1,4 @@
-package sessions
+package sessionDatabase
 
 import (
 	"github.com/kamva/mgm/v3"
