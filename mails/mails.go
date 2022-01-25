@@ -11,7 +11,7 @@ var (
 	smtpClient *mail.SMTPClient
 )
 
-func InitMailClient() {
+func InitClient() {
 	server := mail.NewSMTPClient()
 	server.Host = env.SmtpHost
 	port, err := strconv.ParseUint(env.SmtpPort, 10, 32)

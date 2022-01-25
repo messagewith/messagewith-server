@@ -48,8 +48,8 @@ func main() {
 
 	env.InitEnvConstants()
 	initDatabaseConnection()
-	mails.InitMailClient()
-	users.InitUserService()
+	mails.InitClient()
+	users.InitService()
 	auth.InitService()
 
 	r := gin.Default()

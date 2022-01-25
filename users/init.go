@@ -4,6 +4,6 @@ var (
 	Service *service
 )
 
-func InitUserService() {
+func InitService() {
 	Service = getService()
 }
