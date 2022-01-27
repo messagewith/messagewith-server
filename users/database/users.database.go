@@ -11,7 +11,7 @@ type User struct {
 	mgm.DefaultModel `bson:",inline"`
 	ID               primitive.ObjectID `bson:"_id"`
 	FirstName        string             `bson:"firstName"`
-	MiddleName       *string            `bson:"middleName"`
+	MiddleName       *string            `bson:"middleName,omitempty"`
 	LastName         string             `bson:"lastName"`
 	FullName         string             `bson:"fullName"`
 	Nickname         string             `bson:"nickname"`

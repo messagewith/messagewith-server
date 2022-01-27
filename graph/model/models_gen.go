@@ -16,6 +16,7 @@ type UserFilter struct {
 	FirstName *string `json:"firstName"`
 	LastName  *string `json:"lastName"`
 	Email     *string `json:"email"`
+	FullName  *string `json:"fullName"`
 }
 
 type UserInput struct {

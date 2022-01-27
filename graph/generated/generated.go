@@ -317,6 +317,7 @@ input UserFilter {
     firstName: String
     lastName: String
     email: String
+    fullName: String
 }
 
 extend type Query {
@@ -2291,6 +2292,14 @@ func (ec *executionContext) unmarshalInputUserFilter(ctx context.Context, obj in
 
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("email"))
 			it.Email, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "fullName":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fullName"))
+			it.FullName, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}

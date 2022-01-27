@@ -3,11 +3,11 @@ package users
 import (
 	"context"
 	"fmt"
-	"github.com/kamva/mgm/v3"
 	"go.mongodb.org/mongo-driver/bson"
 	errors "messagewith-server/error-constants"
 	"messagewith-server/graph/model"
 	database "messagewith-server/users/database"
+	"messagewith-server/utils"
 	"strings"
 )
 
@@ -16,10 +16,9 @@ func UserFromContext(ctx context.Context) *database.User {
 	return user
 }
 
-func createNickname(ctx context.Context, db *mgm.Collection, userInput *model.UserInput) (*string, error) {
-	foundUser := &database.User{}
+func createNickname(ctx context.Context, repository R, userInput *model.UserInput) (*string, error) {
 	if userInput.Nickname != nil {
-		if err := db.FindOne(ctx, bson.M{"nickname": userInput.Nickname}).Decode(foundUser); err == nil {
+		if result, err := repository.FindOne(ctx, bson.M{"nickname": userInput.Nickname}); err == nil && result.Nickname == *userInput.Nickname {
 			return nil, errors.ErrUserNicknameAlreadyUsed
 		}
 
@@ -40,7 +39,7 @@ func createNickname(ctx context.Context, db *mgm.Collection, userInput *model.Us
 			tempNickname = fmt.Sprintf("%v_%v", firstNameAndLastName, i)
 		}
 
-		if err := db.FindOne(ctx, bson.M{"nickname": tempNickname}).Decode(foundUser); err != nil {
+		if _, err := repository.FindOne(ctx, bson.M{"nickname": tempNickname}); err != nil {
 			newNickname = &tempNickname
 		}
 
@@ -48,4 +47,60 @@ func createNickname(ctx context.Context, db *mgm.Collection, userInput *model.Us
 	}
 
 	return newNickname, nil
+}
+
+func validateUserInput(input *model.UserInput) error {
+	if input == nil || input.FirstName == "" || input.LastName == "" || input.Password == "" {
+		return errors.ErrUserInputNotContainsAllProps
+	}
+
+	if firstNameLength := len(input.FirstName); firstNameLength < 2 {
+		return errors.ErrUserFirstNameTooShort
+	} else if firstNameLength > 50 {
+		return errors.ErrUserFirstNameTooLong
+	}
+
+	if lastNameLength := len(input.LastName); lastNameLength < 2 {
+		return errors.ErrUserLastNameTooShort
+	} else if lastNameLength > 50 {
+		return errors.ErrUserLastNameTooLong
+	}
+
+	if input.MiddleName != nil {
+		if middleNameLength := len(*input.MiddleName); middleNameLength < 2 {
+			return errors.ErrUserMiddleNameTooShort
+		} else if middleNameLength > 50 {
+			return errors.ErrUserMiddleNameTooLong
+		}
+	}
+
+	if input.Nickname != nil {
+		if nicknameLength := len(*input.Nickname); nicknameLength < 2 {
+			return errors.ErrUserNicknameTooShort
+		} else if nicknameLength > 26 {
+			return errors.ErrUserNicknameTooLong
+		}
+	}
+
+	if emailLength := len(input.Email); emailLength < 6 {
+		return errors.ErrUserEmailTooShort
+	} else if emailLength > 254 {
+		return errors.ErrUserEmailTooLong
+	}
+
+	if !utils.IsEmailValid(input.Email) {
+		return errors.ErrUserEmailWrong
+	}
+
+	if passwordLength := len(input.Password); passwordLength < 8 {
+		return errors.ErrUserPasswordTooShort
+	} else if passwordLength > 128 {
+		return errors.ErrUserPasswordTooLong
+	}
+
+	if !utils.IsPasswordValid(input.Password) {
+		return errors.ErrUserBadPassword
+	}
+
+	return nil
 }
