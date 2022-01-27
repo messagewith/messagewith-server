@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"io"
+	"regexp"
 )
 
 func HashPassword(password string) string {
@@ -80,4 +81,35 @@ func Decrypt(key []byte, secure string) (decoded string, err error) {
 	stream.XORKeyStream(cipherText, cipherText)
 
 	return string(cipherText), err
+}
+
+func IsEmailValid(email string) bool {
+	emailRegex := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	return emailRegex.MatchString(email)
+}
+
+func IsPasswordValid(password string) bool {
+	if len(password) < 8 {
+		return false
+	}
+
+	specialCharactersRegex := regexp.MustCompile(`\W`)
+	lettersRegex := regexp.MustCompile(`[a-z]`)
+	numbersRegex := regexp.MustCompile(`[0-9]`)
+	uppercaseRegex := regexp.MustCompile(`[A-Z]`)
+	lowercaseRegex := regexp.MustCompile(`[a-z]`)
+
+	if !specialCharactersRegex.MatchString(password) {
+		return false
+	} else if !lettersRegex.MatchString(password) {
+		return false
+	} else if !numbersRegex.MatchString(password) {
+		return false
+	} else if !uppercaseRegex.MatchString(password) {
+		return false
+	} else if !lowercaseRegex.MatchString(password) {
+		return false
+	}
+
+	return true
 }

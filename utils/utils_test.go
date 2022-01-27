@@ -79,3 +79,20 @@ func TestGinContextFromContext(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	r.ServeHTTP(w, req)
 }
+
+func TestEmailIsValid(t *testing.T) {
+	assert.True(t, IsEmailValid("test44@gmail.com"))
+	assert.False(t, IsEmailValid("bad-email"))
+	assert.False(t, IsEmailValid("test44$@gmail.com"))
+	assert.False(t, IsEmailValid("test-email.com"))
+	assert.True(t, IsEmailValid("test+email@test.com"))
+	assert.True(t, IsEmailValid("test-email@test.com"))
+}
+
+func TestIsPasswordValid(t *testing.T) {
+	assert.False(t, IsPasswordValid("12"))
+	assert.False(t, IsPasswordValid("12s@!S"))
+	assert.False(t, IsPasswordValid("1asdakndoainoi"))
+	assert.False(t, IsPasswordValid("1asdakndoainoi!"))
+	assert.True(t, IsPasswordValid("1asdakndoainoi!S"))
+}
