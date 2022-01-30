@@ -1,8 +1,8 @@
-package users
+package sessions
 
 import (
 	"github.com/kamva/mgm/v3"
-	database "messagewith-server/users/database"
+	database "messagewith-server/sessions/database"
 )
 
 var (
@@ -12,5 +12,5 @@ var (
 
 func InitService() {
 	collection = database.GetDB().UseCollection()
-	Service = GetService(&Repository{})
+	Service = getService(&Repository{})
 }

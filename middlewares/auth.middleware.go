@@ -8,7 +8,7 @@ import (
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		session, err := sessions.GetSessionFromCookie(c)
+		session, err := sessions.Service.GetSessionFromCookie(c)
 		if err != nil {
 			c.Next()
 			return

@@ -23,7 +23,7 @@ func TestService_CreateUser(t *testing.T) {
 	findOneResult, findOneErr, findOneHandler := GetFindOneRunHandler(&mockDB)
 	testObj.On("FindOne", mock.Anything).Run(findOneHandler).Return(&*findOneResult, &*findOneErr)
 	testObj.On("Create").Return(nil)
-	service := getService(testObj)
+	service := GetService(testObj)
 
 	_, err := service.CreateUser(nil, &model.UserInput{})
 	assert.ErrorIs(t, err, errorConstants.ErrUserInputNotContainsAllProps)
@@ -151,7 +151,7 @@ func TestService_GetUsers(t *testing.T) {
 	findRes, findErr, findHandler := GetFindRunHandler(&mockDB)
 	testObj.On("Find", mock.AnythingOfType("primitive.M")).Run(findHandler).Return(&*findRes, &*findErr)
 
-	service := getService(testObj)
+	service := GetService(testObj)
 	firstName := "Jakub"
 	users, _ := service.GetUsers(nil, &model.UserFilter{FirstName: &firstName})
 	assert.Equal(t, users, FilterAllUsers([]*database.User{mockDB[0], mockDB[1]}))
@@ -185,7 +185,7 @@ func TestService_GetUser(t *testing.T) {
 	findOneResult, findOneErr, findOneHandler := GetFindOneRunHandler(&mockDB)
 	testObj.On("FindOne", mock.Anything).Run(findOneHandler).Return(&*findOneResult, &*findOneErr)
 
-	service := getService(testObj)
+	service := GetService(testObj)
 	user, _ := service.GetUser(nil, &hexId, nil, nil)
 	assert.Equal(t, user, FilterUser(mockDB[0]))
 

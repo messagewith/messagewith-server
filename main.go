@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/kamva/mgm/v3"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"messagewith-server/auth"
@@ -14,6 +12,7 @@ import (
 	"messagewith-server/graph/generated"
 	"messagewith-server/mails"
 	"messagewith-server/middlewares"
+	"messagewith-server/sessions"
 	"messagewith-server/users"
 )
 
@@ -41,15 +40,11 @@ func initDatabaseConnection() {
 }
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		panic(fmt.Errorf("create .env file"))
-	}
-
 	env.InitEnvConstants()
 	initDatabaseConnection()
 	mails.InitClient()
 	users.InitService()
+	sessions.InitService()
 	auth.InitService()
 
 	r := gin.Default()

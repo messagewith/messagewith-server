@@ -20,7 +20,7 @@ var (
 	repository R
 )
 
-func getService(rep R) *service {
+func GetService(rep R) *service {
 	repository = rep
 	return &service{}
 }
