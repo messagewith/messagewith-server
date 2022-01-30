@@ -13,12 +13,13 @@ import (
 
 func UserFromContext(ctx context.Context) *database.User {
 	user, _ := ctx.Value("LoggedUser").(*database.User)
+
 	return user
 }
 
 func createNickname(ctx context.Context, repository R, userInput *model.UserInput) (*string, error) {
 	if userInput.Nickname != nil {
-		if result, err := repository.FindOne(ctx, bson.M{"nickname": userInput.Nickname}); err == nil && result.Nickname == *userInput.Nickname {
+		if _, err := repository.FindOne(ctx, bson.M{"nickname": userInput.Nickname}); err == nil {
 			return nil, errors.ErrUserNicknameAlreadyUsed
 		}
 
@@ -36,7 +37,7 @@ func createNickname(ctx context.Context, repository R, userInput *model.UserInpu
 		if i == 0 {
 			tempNickname = firstNameAndLastName
 		} else {
-			tempNickname = fmt.Sprintf("%v_%v", firstNameAndLastName, i)
+			tempNickname = fmt.Sprintf("%v_%v", firstNameAndLastName, i+1)
 		}
 
 		if _, err := repository.FindOne(ctx, bson.M{"nickname": tempNickname}); err != nil {
