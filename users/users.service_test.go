@@ -4,9 +4,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"messagewith-server/env"
 	errorConstants "messagewith-server/error-constants"
 	"messagewith-server/graph/model"
+	"messagewith-server/mails"
 	database "messagewith-server/users/database"
+	"messagewith-server/utils"
+	"strings"
 	"testing"
 )
 
@@ -23,7 +27,7 @@ func TestService_CreateUser(t *testing.T) {
 	findOneResult, findOneErr, findOneHandler := GetFindOneRunHandler(&mockDB)
 	testObj.On("FindOne", mock.Anything).Run(findOneHandler).Return(&*findOneResult, &*findOneErr)
 	testObj.On("Create").Return(nil)
-	service := GetService(testObj)
+	service := GetService(testObj, nil)
 
 	_, err := service.CreateUser(nil, &model.UserInput{})
 	assert.ErrorIs(t, err, errorConstants.ErrUserInputNotContainsAllProps)
@@ -151,7 +155,7 @@ func TestService_GetUsers(t *testing.T) {
 	findRes, findErr, findHandler := GetFindRunHandler(&mockDB)
 	testObj.On("Find", mock.AnythingOfType("primitive.M")).Run(findHandler).Return(&*findRes, &*findErr)
 
-	service := GetService(testObj)
+	service := GetService(testObj, nil)
 	firstName := "Jakub"
 	users, _ := service.GetUsers(nil, &model.UserFilter{FirstName: &firstName})
 	assert.Equal(t, users, FilterAllUsers([]*database.User{mockDB[0], mockDB[1]}))
@@ -185,7 +189,7 @@ func TestService_GetUser(t *testing.T) {
 	findOneResult, findOneErr, findOneHandler := GetFindOneRunHandler(&mockDB)
 	testObj.On("FindOne", mock.Anything).Run(findOneHandler).Return(&*findOneResult, &*findOneErr)
 
-	service := GetService(testObj)
+	service := GetService(testObj, nil)
 	user, _ := service.GetUser(nil, &hexId, nil, nil)
 	assert.Equal(t, user, FilterUser(mockDB[0]))
 
@@ -269,4 +273,90 @@ func TestFilterAllUser(t *testing.T) {
 			Nickname:   testAllUsers[1].Nickname,
 		},
 	})
+}
+
+func TestService_GenerateChangePasswordToken(t *testing.T) {
+	env.InitEnvConstants()
+	mockUsersDB := []*database.User{
+		{ID: primitive.NewObjectID(), Email: "johny@email.com"},
+		{ID: primitive.NewObjectID(), Email: "johny2@email.com"},
+	}
+	mockRepository := new(MockRepository)
+	usersFindOneRes, usersFindOneErr, usersFindOneHandler := GetFindOneRunHandler(&mockUsersDB)
+	mockRepository.On("FindOne", mock.Anything).Run(usersFindOneHandler).Return(&*usersFindOneRes, &*usersFindOneErr)
+
+	mockRepositoryRP := new(ResetPasswordMockRepository)
+	mockResetPasswordDB := make([]*database.ResetPassword, 0)
+	mockRepositoryRP.On("Create", mock.Anything).Run(GetResetPasswordCreateRunHandler(&mockResetPasswordDB)).Return(nil)
+	resetPasswordFindOneRes, resetPasswordFindOneErr, resetPasswordFindOneHandler := GetResetPasswordFindOneRunHandler(&mockResetPasswordDB)
+	mockRepositoryRP.On("FindOne", mock.Anything).Run(resetPasswordFindOneHandler).Return(&*resetPasswordFindOneRes, &*resetPasswordFindOneErr)
+
+	mockMailsClient := new(mails.ClientMock)
+	mails.Service = mails.GetService(mockMailsClient)
+	var message *mails.Message
+	mockMailsClient.On("Send", mock.Anything).Run(func(args mock.Arguments) {
+		msg := args.Get(0).(*mails.Message)
+		message = msg
+	}).Return(nil)
+
+	service := GetService(mockRepository, mockRepositoryRP)
+	returnMsg, err := service.GenerateChangePasswordToken(nil, "another@email.com")
+	assert.Nil(t, returnMsg)
+	assert.ErrorIs(t, errorConstants.ErrNoUserWithSpecifiedEmail, err)
+
+	returnMsg, err = service.GenerateChangePasswordToken(nil, "johny@email.com")
+	assert.Nil(t, err)
+	assert.NotNil(t, returnMsg)
+	assert.Equal(t, 1, len(mockResetPasswordDB))
+	assert.Equal(t, strings.ReplaceAll(message.Body, "Your reset password token is: ", ""), mockResetPasswordDB[0].Token)
+}
+
+func TestService_ChangePassword(t *testing.T) {
+	env.InitEnvConstants()
+	oldPassword := utils.HashPassword("oldpassword")
+	mockUsersDB := []*database.User{
+		{ID: primitive.NewObjectID(), Email: "johny@email.com", Password: oldPassword},
+		{ID: primitive.NewObjectID(), Email: "johny2@email.com"},
+	}
+	mockRepository := new(MockRepository)
+	updateByIdRes, updateByIdErr, updateByIdHandler := GetUpdateByIDRunHandler(&mockUsersDB)
+	mockRepository.On("UpdateByID", mock.Anything, mock.Anything).Run(updateByIdHandler).Return(&*updateByIdRes, &*updateByIdErr)
+	usersFindOneRes, usersFindOneErr, usersFindOneHandler := GetFindOneRunHandler(&mockUsersDB)
+	mockRepository.On("FindOne", mock.Anything).Run(usersFindOneHandler).Return(&*usersFindOneRes, &*usersFindOneErr)
+
+	mockRepositoryRP := new(ResetPasswordMockRepository)
+	mockResetPasswordDB := make([]*database.ResetPassword, 0)
+	mockRepositoryRP.On("Create", mock.Anything).Run(GetResetPasswordCreateRunHandler(&mockResetPasswordDB)).Return(nil)
+	resetPasswordFindOneRes, resetPasswordFindOneErr, resetPasswordFindOneHandler := GetResetPasswordFindOneRunHandler(&mockResetPasswordDB)
+	mockRepositoryRP.On("FindOne", mock.Anything).Run(resetPasswordFindOneHandler).Return(&*resetPasswordFindOneRes, &*resetPasswordFindOneErr)
+	resetPasswordDeleteOneRes, resetPasswordDeleteOneErr, resetPasswordDeleteOneHandler := GetResetPasswordDeleteOneRunHandler(&mockResetPasswordDB)
+	mockRepositoryRP.On("DeleteOne", mock.Anything).Run(resetPasswordDeleteOneHandler).Return(&*resetPasswordDeleteOneRes, &*resetPasswordDeleteOneErr)
+	mockRepositoryRP.On("DeleteOne")
+
+	mockMailsClient := new(mails.ClientMock)
+	mails.Service = mails.GetService(mockMailsClient)
+	mockMailsClient.On("Send", mock.Anything).Return(nil)
+
+	service := GetService(mockRepository, mockRepositoryRP)
+	_, err := service.GenerateChangePasswordToken(nil, "johny@email.com")
+	assert.Nil(t, err)
+
+	token := mockResetPasswordDB[0].Token
+
+	_, err = service.ChangePassword(nil, "johny@email.com", token, "newStro")
+	assert.ErrorIs(t, errorConstants.ErrUserPasswordTooShort, err)
+	_, err = service.ChangePassword(nil, "johny@email.com", token, "epTjLKTmHagT5ulTIwtAViIubLDZ48XZQBE9xBMf6rQicVxqRzg59qanbnMAZPloV27Nx1NXlQ3Qf3UL1umdOlzjoNOas4wBB4MJZRBnYchi3kBmhyUNiS6ci9eEvAMb9")
+	assert.ErrorIs(t, errorConstants.ErrUserPasswordTooLong, err)
+	_, err = service.ChangePassword(nil, "johny@email.com", token, "newstrongpassword")
+	assert.ErrorIs(t, errorConstants.ErrUserBadPassword, err)
+	_, err = service.ChangePassword(nil, "johny@email.com", token, "newStrongPassword")
+	assert.ErrorIs(t, errorConstants.ErrUserBadPassword, err)
+	_, err = service.ChangePassword(nil, "johny@email.com", token, "newStrongPassword123")
+	assert.ErrorIs(t, errorConstants.ErrUserBadPassword, err)
+
+	assert.Equal(t, 1, len(mockResetPasswordDB))
+	_, err = service.ChangePassword(nil, "johny@email.com", token, "newStrongPassword123!")
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(mockResetPasswordDB))
+	assert.NotEqual(t, oldPassword, mockUsersDB[0].Password)
 }

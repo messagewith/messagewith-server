@@ -2,6 +2,8 @@ package users
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	database "messagewith-server/users/database"
 )
 
@@ -9,6 +11,7 @@ type R interface {
 	FindOne(ctx context.Context, filter interface{}) (*database.User, error)
 	Find(ctx context.Context, filter interface{}) ([]*database.User, error)
 	Create(document *database.User) error
+	UpdateByID(ctx context.Context, id interface{}, filter interface{}) (*mongo.UpdateResult, error)
 }
 
 type Repository struct{}
@@ -42,4 +45,8 @@ func (r *Repository) Create(document *database.User) error {
 	err := collection.Create(document)
 
 	return err
+}
+
+func (r *Repository) UpdateByID(ctx context.Context, id interface{}, update interface{}) (*mongo.UpdateResult, error) {
+	return collection.UpdateByID(ctx, id, bson.M{"$set": update})
 }

@@ -42,7 +42,7 @@ func initDatabaseConnection() {
 func main() {
 	env.InitEnvConstants()
 	initDatabaseConnection()
-	mails.InitClient()
+	mails.InitService()
 	users.InitService()
 	sessions.InitService()
 	auth.InitService()

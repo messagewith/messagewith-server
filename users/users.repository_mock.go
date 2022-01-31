@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/naamancurtis/mongo-go-struct-to-bson/mapper"
 	"github.com/stretchr/testify/mock"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	database "messagewith-server/users/database"
@@ -109,4 +110,61 @@ func GetFindRunHandler(mockDB *[]*database.User) (*[]*database.User, *error, fun
 func (m *MockRepository) Create(_ *database.User) error {
 	args := m.Called()
 	return args.Error(0)
+}
+
+func (m *MockRepository) UpdateByID(_ context.Context, id interface{}, update interface{}) (*mongo.UpdateResult, error) {
+	args := m.Called(id, update)
+	res := args.Get(0).(**mongo.UpdateResult)
+	err := args.Get(1)
+
+	if err == nil {
+		return *res, nil
+	}
+
+	return *res, *err.(*error)
+}
+
+func GetUpdateByIDRunHandler(db *[]*database.User) (**mongo.UpdateResult, *error, func(args mock.Arguments)) {
+	var (
+		res *mongo.UpdateResult
+		err error
+	)
+
+	return &res, &err, func(args mock.Arguments) {
+		res = nil
+		err = nil
+		id := args.Get(0).(primitive.ObjectID)
+		update := args.Get(1).(primitive.M)
+
+		var updateObjIndex = -1
+
+		for index, item := range *db {
+			if item.ID == id {
+				updateObjIndex = index
+			}
+		}
+
+		if updateObjIndex == -1 {
+			err = mongo.ErrNoDocuments
+			return
+		}
+
+		updatedObjBson := mapper.ConvertStructToBSONMap((*db)[updateObjIndex], nil)
+
+		for key, value := range update {
+			if updatedObjBson[key] != nil {
+				updatedObjBson[key] = value
+			}
+		}
+
+		var updatedObj *database.User
+		bsonBytes, _ := bson.Marshal(updatedObjBson)
+		err := bson.Unmarshal(bsonBytes, &updatedObj)
+		if err != nil {
+			panic(err)
+		}
+		(*db)[updateObjIndex] = updatedObj
+
+		res = &mongo.UpdateResult{}
+	}
 }

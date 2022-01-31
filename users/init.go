@@ -6,11 +6,13 @@ import (
 )
 
 var (
-	Service    *service
-	collection *mgm.Collection
+	Service                 *service
+	collection              *mgm.Collection
+	resetPasswordCollection *mgm.Collection
 )
 
 func InitService() {
 	collection = database.GetDB().UseCollection()
-	Service = GetService(&Repository{})
+	resetPasswordCollection = database.GetResetPasswordDB().UseCollection()
+	Service = GetService(&Repository{}, &ResetPasswordRepository{})
 }

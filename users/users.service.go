@@ -17,11 +17,13 @@ import (
 type service struct{}
 
 var (
-	repository R
+	repository   R
+	repositoryRP RP
 )
 
-func GetService(rep R) *service {
+func GetService(rep R, resetPasswordRep RP) *service {
 	repository = rep
+	repositoryRP = resetPasswordRep
 	return &service{}
 }
 
@@ -136,17 +138,14 @@ func (service *service) GetPlainUser(ctx context.Context, id *string, email *str
 }
 
 func (service *service) GenerateChangePasswordToken(ctx context.Context, email string) (*string, error) {
-	db := database.GetResetPasswordDB().UseCollection()
-
 	user, err := service.GetPlainUser(ctx, nil, &email, nil)
 	if err != nil {
 		return nil, errors.ErrNoUserWithSpecifiedEmail
 	}
 
-	result := &database.ResetPassword{}
-	err = db.FindOne(ctx, bson.M{"user": user.ID}).Decode(result)
+	_, err = repositoryRP.FindOne(ctx, bson.M{"user": user.ID})
 	if err == nil {
-		_, err := db.DeleteOne(ctx, bson.M{"user": user.ID})
+		_, err := repositoryRP.DeleteOne(ctx, bson.M{"user": user.ID})
 		if err != nil {
 			panic(err)
 		}
@@ -159,12 +158,12 @@ func (service *service) GenerateChangePasswordToken(ctx context.Context, email s
 		User:  user.ID,
 	}
 
-	err = db.Create(&resetPasswordDocument)
+	err = repositoryRP.Create(&resetPasswordDocument)
 	if err != nil {
 		panic(err)
 	}
 
-	ok := mails.SendResetPasswordToken(email, token)
+	ok := mails.Service.SendResetPasswordToken(email, token)
 	if ok == false {
 		panic("Failed to send reset password e-mail")
 	}
@@ -175,15 +174,12 @@ func (service *service) GenerateChangePasswordToken(ctx context.Context, email s
 }
 
 func (service *service) ChangePassword(ctx context.Context, email string, token string, newPassword string) (*model.User, error) {
-	resetPasswordDB := database.GetResetPasswordDB().UseCollection()
-
-	resetPasswordResult := &database.ResetPassword{}
-	err := resetPasswordDB.FindOne(ctx, bson.M{"token": token}).Decode(resetPasswordResult)
+	res, err := repositoryRP.FindOne(ctx, bson.M{"token": token})
 	if err != nil {
 		return nil, errors.ErrChangePasswordTokenNotFound
 	}
 
-	userId := resetPasswordResult.User.Hex()
+	userId := res.User.Hex()
 	user, err := service.GetPlainUser(ctx, &userId, nil, nil)
 	if err != nil {
 		panic(err)
@@ -193,18 +189,28 @@ func (service *service) ChangePassword(ctx context.Context, email string, token 
 		return nil, errors.ErrNoUserWithSpecifiedEmail
 	}
 
+	if passwordLength := len(newPassword); passwordLength < 8 {
+		return nil, errors.ErrUserPasswordTooShort
+	} else if passwordLength > 128 {
+		return nil, errors.ErrUserPasswordTooLong
+	}
+
+	if !utils.IsPasswordValid(newPassword) {
+		return nil, errors.ErrUserBadPassword
+	}
+
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(newPassword))
 	if err == nil {
 		return nil, errors.ErrChangePasswordSameNewPassword
 	}
 
 	user.Password = utils.HashPassword(newPassword)
-	_, err = collection.UpdateByID(ctx, user.ID, bson.M{"$set": bson.M{"password": user.Password}})
+	_, err = repository.UpdateByID(ctx, user.ID, bson.M{"password": user.Password})
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = resetPasswordDB.DeleteOne(ctx, resetPasswordResult)
+	_, err = repositoryRP.DeleteOne(ctx, res)
 	if err != nil {
 		panic(err)
 	}

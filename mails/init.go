@@ -9,9 +9,10 @@ import (
 
 var (
 	smtpClient *mail.SMTPClient
+	Service    *service
 )
 
-func InitClient() {
+func InitService() {
 	server := mail.NewSMTPClient()
 	server.Host = env.SmtpHost
 	port, err := strconv.ParseUint(env.SmtpPort, 10, 32)
@@ -22,9 +23,11 @@ func InitClient() {
 	server.Username = env.SmtpUsername
 	server.Password = env.SmtpPassword
 
-	client, err := server.Connect()
+	c, err := server.Connect()
 	if err != nil {
 		log.Fatal(err)
 	}
-	smtpClient = client
+
+	smtpClient = c
+	Service = GetService(&Client{})
 }
