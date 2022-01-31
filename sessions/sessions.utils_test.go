@@ -13,6 +13,7 @@ import (
 	"messagewith-server/utils"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -51,7 +52,7 @@ func TestGetSessionTokenFromCookie(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	req.AddCookie(&http.Cookie{
 		Name:     "SessionToken",
-		Value:    encryptedToken,
+		Value:    strings.ReplaceAll(encryptedToken, "+", "%2B"),
 		HttpOnly: true,
 		Secure:   true,
 		Expires:  time.Date(2999, time.April, 10, 10, 10, 10, 10, time.UTC),
