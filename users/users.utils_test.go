@@ -10,14 +10,14 @@ import (
 	"testing"
 )
 
-func TestUserFromContext(t *testing.T) {
+func TestGetUserFromContext(t *testing.T) {
 	user := &database.User{}
 	ctx := context.WithValue(context.Background(), "LoggedUser", user)
 
-	userFromCtx := UserFromContext(ctx)
+	userFromCtx := GetUserFromContext(ctx)
 	assert.Equal(t, userFromCtx, user)
 
-	secondUserFromCtx := UserFromContext(context.Background())
+	secondUserFromCtx := GetUserFromContext(context.Background())
 	assert.Nil(t, secondUserFromCtx)
 }
 

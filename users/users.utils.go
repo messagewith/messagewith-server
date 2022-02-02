@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func UserFromContext(ctx context.Context) *database.User {
+func GetUserFromContext(ctx context.Context) *database.User {
 	user, _ := ctx.Value("LoggedUser").(*database.User)
 
 	return user

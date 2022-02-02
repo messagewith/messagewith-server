@@ -33,7 +33,7 @@ func (r *Repository) Find(ctx context.Context, filter interface{}) ([]*database.
 		return nil, err
 	}
 
-	err = cursor.All(ctx, users)
+	err = cursor.All(ctx, &users)
 	if err != nil {
 		return nil, err
 	}
