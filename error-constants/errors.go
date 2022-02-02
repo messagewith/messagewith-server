@@ -28,4 +28,5 @@ var (
 	ErrInvalidID                     = errors.New("invalid id")
 	ErrChangePasswordTokenNotFound   = errors.New("invalid token")
 	ErrChangePasswordSameNewPassword = errors.New("specified new password is the same as old password")
+	ErrChatAlreadyCreated            = errors.New("chat is already created")
 )

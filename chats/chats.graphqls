@@ -1,0 +1,65 @@
+type Chat {
+    id: String!
+    user: User!
+    messages(count: Int): [Message]
+    messagesCount: Int!
+    lastViewedMessage: LastViewedMessage
+}
+
+enum MessageType {
+    Text
+    Reply
+    GIF
+    Image
+    Images
+    Sticker
+    File
+    Files
+    Withdrawn
+}
+
+type Message {
+    id: String!
+    user: User!
+    messageType: MessageType!
+    content: String!
+    sendTime: Int!
+    reactions: [Reaction]
+    isForwarded: Boolean!
+}
+
+type Reaction {
+    emoji: String!
+    user: User!
+}
+
+type LastViewedMessage {
+    message: Message!
+    user: User!
+    time: Int!
+}
+
+input ChatFilter {
+    id: String
+    userId: String
+}
+
+extend type Query {
+    chatById(id: String!): Chat!
+    chats(filter: ChatFilter): [Chat]
+}
+
+extend type Mutation {
+    createChat(userId: String!): Chat!
+    deleteChat(id: String!): Boolean
+    sendMessage(chatId: String!, messageType: MessageType!, content: String!): Message!
+    deleteMessage(id: String!, chatId: String!): Boolean
+    undoMessage(id: String!, chatId: String!): Boolean
+    setMessageReaction(chatId: String!, messageId: String!, emoji: String!): Reaction!
+    deleteMessageReaction(chatId: String!, messageId: String!): Boolean
+}
+
+extend type Subscription {
+    chatById(id: String!): Chat!
+    chats(filter: ChatFilter): [Chat]
+}

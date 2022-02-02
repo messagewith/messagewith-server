@@ -12,21 +12,21 @@ import (
 )
 
 func (r *mutationResolver) Logout(ctx context.Context) (*bool, error) {
-	if user := users.UserFromContext(ctx); user == nil {
+	if user := users.GetUserFromContext(ctx); user == nil {
 		return nil, errorConstants.ErrUserNotLoggedIn
 	}
 	return auth.Service.Logout(ctx)
 }
 
 func (r *mutationResolver) Login(ctx context.Context, email string, password string) (*model.User, error) {
-	if user := users.UserFromContext(ctx); user != nil {
+	if user := users.GetUserFromContext(ctx); user != nil {
 		return nil, errorConstants.ErrUserAlreadyLoggedIn
 	}
 	return auth.Service.Login(ctx, email, password)
 }
 
 func (r *queryResolver) LoggedUser(ctx context.Context) (*model.User, error) {
-	user := users.UserFromContext(ctx)
+	user := users.GetUserFromContext(ctx)
 	if user == nil {
 		return nil, errorConstants.ErrUserNotLoggedIn
 	}

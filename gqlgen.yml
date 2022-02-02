@@ -3,6 +3,7 @@ schema:
   - graph/*.graphqls
   - users/*.graphqls
   - auth/*.graphqls
+  - chats/*.graphqls
 
 # Where should the generated server code go?
 exec:
