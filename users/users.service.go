@@ -3,15 +3,16 @@ package users
 import (
 	"context"
 	"fmt"
-	uuid "github.com/satori/go.uuid"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"golang.org/x/crypto/bcrypt"
 	errors "messagewith-server/error-constants"
 	"messagewith-server/graph/model"
 	"messagewith-server/mails"
 	database "messagewith-server/users/database"
 	"messagewith-server/utils"
+
+	uuid "github.com/satori/go.uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type service struct{}
@@ -196,7 +197,7 @@ func (service *service) ChangePassword(ctx context.Context, email string, token 
 	}
 
 	if !utils.IsPasswordValid(newPassword) {
-		return nil, errors.ErrUserBadPassword
+		return nil, errors.ErrUserWeakPassword
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(newPassword))

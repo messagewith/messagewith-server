@@ -6,6 +6,7 @@ var (
 	ErrUserAlreadyLoggedIn           = errors.New("user is already logged in")
 	ErrUserNotLoggedIn               = errors.New("user is not logged in")
 	ErrUserBadPassword               = errors.New("bad password")
+	ErrUserWeakPassword              = errors.New("password does not meet the requirements")
 	ErrUserNicknameAlreadyUsed       = errors.New("user with specified nickname already exists")
 	ErrUserEmailAlreadyUsed          = errors.New("user with specified e-mail already exists")
 	ErrUserInputNotContainsAllProps  = errors.New("user input does not contain all required properties")

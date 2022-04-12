@@ -1,11 +1,6 @@
 package sessions
 
 import (
-	"github.com/gin-gonic/gin"
-	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"messagewith-server/env"
 	database "messagewith-server/sessions/database"
 	"messagewith-server/users"
@@ -16,6 +11,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func TestGetUserFromSession(t *testing.T) {
@@ -28,7 +29,7 @@ func TestGetUserFromSession(t *testing.T) {
 	usersMockRepo := new(users.MockRepository)
 	usersFindOneRes, usersFindOneErr, usersFindOneHandler := users.GetFindOneRunHandler(&usersMockDB)
 	usersMockRepo.On("FindOne", mock.Anything).Run(usersFindOneHandler).Return(&*usersFindOneRes, &*usersFindOneErr)
-	users.Service = users.GetService(usersMockRepo)
+	users.Service = users.GetService(usersMockRepo, &users.ResetPasswordRepository{})
 
 	user, err := GetUserFromSession(nil, &database.Session{User: id})
 	assert.Nil(t, err)

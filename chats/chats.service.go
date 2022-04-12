@@ -2,13 +2,14 @@ package chats
 
 import (
 	"context"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	database "messagewith-server/chats/database"
 	errorConstants "messagewith-server/error-constants"
 	"messagewith-server/graph/model"
 	"messagewith-server/users"
 	usersDatabase "messagewith-server/users/database"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -54,6 +55,53 @@ func (service *service) CreateChat(ctx context.Context, user *usersDatabase.User
 	}
 
 	return FilterChat(ctx, chat, user.ID, secondUser), nil
+}
+
+func (service *service) GetAllChats(ctx context.Context, user *usersDatabase.User) ([]*model.Chat, error) {
+	chats, err := repository.Find(ctx, bson.M{"users": bson.M{"$all": []primitive.ObjectID{user.ID}}})
+	if err != nil {
+		panic(err)
+	}
+
+	filteredChats := make([]*model.Chat, 0)
+	for _, item := range chats {
+		var foundUserId *primitive.ObjectID
+
+		for _, userId := range item.Users {
+			if userId != user.ID {
+				foundUserId = &userId
+			}
+		}
+
+		if foundUserId == nil {
+			panic("err")
+		}
+
+		foundUserIdHex := foundUserId.Hex()
+
+		foundUser, err := users.Service.GetPlainUser(ctx, &foundUserIdHex, nil, nil)
+
+		if err != nil {
+			panic("err")
+		}
+
+		filteredChats = append(filteredChats, FilterChat(ctx, item, user.ID, foundUser))
+	}
+
+
+	return filteredChats, nil;
+}
+
+// DeleteChat /* TODO */
+func (service *service) DeleteChat(ctx context.Context, user *usersDatabase.User, id string) (*bool, error) {
+	//chat, err = repository.FindOne(ctx, bson.M{"users": })
+	//
+	//if err != nil {
+	//	return nil, errorConstants.ErrChat
+	//}
+
+	res := true
+	return &res, nil
 }
 
 func FilterChat(ctx context.Context, chat *database.Chat, userObjectID primitive.ObjectID, secondUser *usersDatabase.User) *model.Chat {

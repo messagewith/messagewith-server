@@ -22,7 +22,8 @@ func (r *mutationResolver) CreateChat(ctx context.Context, userID string) (*mode
 }
 
 func (r *mutationResolver) DeleteChat(ctx context.Context, id string) (*bool, error) {
-	panic(fmt.Errorf("not implemented"))
+	user := users.GetUserFromContext(ctx)
+	return chats.Service.DeleteChat(ctx, user, id)
 }
 
 func (r *mutationResolver) SendMessage(ctx context.Context, chatID string, messageType model.MessageType, content string) (*model.Message, error) {
@@ -50,7 +51,11 @@ func (r *queryResolver) ChatByID(ctx context.Context, id string) (*model.Chat, e
 }
 
 func (r *queryResolver) Chats(ctx context.Context, filter *model.ChatFilter) ([]*model.Chat, error) {
-	panic(fmt.Errorf("not implemented"))
+	user := users.GetUserFromContext(ctx)
+	if user == nil {
+		return nil, errorConstants.ErrUserNotLoggedIn
+	}
+	return chats.Service.GetAllChats(ctx, user)
 }
 
 func (r *subscriptionResolver) ChatByID(ctx context.Context, id string) (<-chan *model.Chat, error) {

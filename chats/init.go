@@ -1,8 +1,9 @@
 package chats
 
 import (
-	"github.com/kamva/mgm/v3"
 	database "messagewith-server/chats/database"
+
+	"github.com/kamva/mgm/v3"
 )
 
 var (
